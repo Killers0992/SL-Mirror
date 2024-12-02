@@ -11,12 +11,12 @@ jobs:
     strategy:
       matrix:
         unityVersion:
-          - 2019.4.40f1
+          # - 2019.4.40f1
           - 2020.3.48f1
-          - 2021.3.42f1
-          - 2022.3.42f1
+          - 2021.3.45f1
+          - 2022.3.53f1
           - 2023.2.20f1
-          - 6000.0.21f1
+          - 6000.0.29f1
 
     steps:
       - name: Checkout repository

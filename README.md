@@ -20,7 +20,7 @@ The **#1** free **open source** game networking library for **Unity 2019 / 2020 
 
 Used **in production** by major hits like [**Population: ONE**](https://www.populationonevr.com/) and many [**more**](#made-with-mirror).
 
-Originally based on [**UNET**](https://blog.unity.com/technology/announcing-unet-new-unity-multiplayer-technology): battle tested **since 2014** for 10 years and counting!
+Originally based on [**UNET**](https://web.archive.org/web/20230915050929/https://blog.unity.com/technology/announcing-unet-new-unity-multiplayer-technology): battle tested **since 2014** for 10 years and counting!
 
 Mirror is **[stable](https://mirror-networking.gitbook.io/docs/general/tests)**, [**modular**](#low-level-transports) & **[easy to use](https://mirror-networking.gitbook.io/)** for all types of games, even small [**MMORPGs**](#made-with-mirror) 🎮.
 
@@ -44,21 +44,22 @@ Many of our features quickly became the norm across all Unity netcodes!<br>
 | 🛞  **Transform & Physics**   | Transform & Physics sync built in.                                                                                                                            | **Stable**      |
 | 👩‍🍼 **Child Components**    | Put networked components on anything.                                                                                                                         | **Stable**      |
 | 🪚️ **IL Post Processing**    | Zero overhead [Rpcs] and [Commands] via IL post processing!                                                                                                   | **Stable**      |
-| ☁️ **Two Click Hosting**      | (Optional) <a href="https://mirror-networking.gitbook.io/docs/hosting/edgegap-hosting-plugin-guide">Build & Push</a> directly from Unity Editor to the Cloud. | **Preview**     |
+| ☁️ **Two Click Hosting**      | (Optional) <a href="https://mirror-networking.gitbook.io/docs/hosting/edgegap-hosting-plugin-guide">Build & Push</a> directly from Unity Editor to the Cloud. | **Stable**     |
 |                               |                                                                                                                                                               |                 |
 | 📏 **Snapshot Interp.**       | Perfectly smooth movement for all platforms and all games.                                                                                                    | **Stable**      |
-| 🏎 **Prediction**        | Simulate Physics locally & apply server corrections.                                                                                            | **Researching**        |
 | 🔫 **Lag Compensation**       | Roll back state to see what the player saw during input.                                                                                                      | **Beta**     |
+| 🔒 **Encryption**             | Secure communication with end-to-end encryption.                                                                                                              | **Beta** |
+| 🔒 **Cheat Detection**        | Mirror Guard safely detects Melon Loader & more.                                                                                                              | **Beta** |
 |                               |                                                                                                                                                               |                 |
 | 🧙‍♂️ **General Purpose**     | Mirror supports all genres for all your games!                                                                                                                |                 |
 | 🧘‍♀️ **Stable API**          | Long term (10 years)  stability instead of new versions!                                                                                                      |
-| 🔬 **Battle Tested**          | Mirror serves over 100 million players. It just works!                                                                                                       |                 |
+| 🔬 **Battle Tested**          | Mirror serves over 100 million players. It just works!                                                                                                        |                 |
 | 💴 **Free & Open Source**     | MIT licensed without any restrictions to minimize risk!                                                                                                       |                 |
 | ❤️ **Community**              | Join our Discord with nearly 15.000 developers world wide!                                                                                                    |                 |
 | 🧜🏻‍♀️ **Long Term Support** | Maintained since 2014 with optional LTS version!                                                                                                              |                 |
 |                               |                                                                                                                                                               |                 |
-| 🔒 **Encryption**             | Secure communication with end-to-end encryption.                                                                                                              | **Preview** |
 | 📐 **Bitpacking**             | Optimized compression (bools as 1 bit etc.)                                                                                                                   | **Researching** |
+| 🏎 **Prediction**             | Simulate Physics locally & apply server corrections.                                                                                                          | **Researching**        |
 
 ---
 ## Architecture
@@ -125,16 +126,18 @@ Check out our [Documentation](https://mirror-networking.gitbook.io/) to learn ho
 If you are migrating from UNET, then please check out our [Migration Guide](https://mirror-networking.gitbook.io/docs/general/migration-guide).
 
 ---
-## Mirror LTS (Long Term Support)
-Mirror LTS is available on the [Asset Store](https://assetstore.unity.com/packages/tools/network/mirror-lts-102631).
+## Mirror Guard
+We recently built the first version of our new "Mirror Guard" - Cheat Detection for Multiplayer Games.<br/>
+Mirror Guard is running in a production game today, so we want to make this available to more studios on demand.<br/>
 
-Mirror LTS gives you peace of mind to run your game in production.
-Without any breaking changes, ever!
+Mirror Guard is built with three core principles in mind:<br/>
+1️⃣ Detection over Prevention: silently reports cheaters to the server, instead of trying to block them.<br/>
+2️⃣ Zero Risk: Mirror Guard focuses on stability, we never want honest players to encounter issues, ever.<br/>
+3️⃣ Real World Threats: Mirror Guard only blocks cheats which we encountered in production.<br/>
 
-* **Bug fixes** only. 
-* **Consistent API**: update any time, without any breaking features.
-* Lives along side **Unity 2019/2020/2021** LTS.
-* Supported for two years at a time.
+🍉 Mirror Guard V1 is able to safely detect Melon Loader, which we've found to be the foundation for the vast majority of cheats that we encountered.
+
+If you are interested, talk to any of our devs or email business at mirror-networking.com.
 
 ---
 ## Made with Mirror

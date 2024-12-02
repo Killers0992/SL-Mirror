@@ -317,10 +317,11 @@ namespace Mirror
         {
             if (NetworkBehaviours == null)
             {
-                Debug.LogError($"NetworkBehaviours array is null on {gameObject.name}!\n" +
+                /*Debug.LogError($"NetworkBehaviours array is null on {gameObject.name}!\n" +
                     $"Typically this can happen when a networked object is a child of a " +
                     $"non-networked parent that's disabled, preventing Awake on the networked object " +
-                    $"from being invoked, where the NetworkBehaviours array is initialized.", gameObject);
+                    $"from being invoked, where the NetworkBehaviours array is initialized.", gameObject);*/
+                InitializeNetworkBehaviours();
             }
             else if (NetworkBehaviours.Length > MaxNetworkBehaviours)
             {
@@ -354,7 +355,6 @@ namespace Mirror
             hasSpawned = false;
 
 #if UNITY_EDITOR
-            DisallowChildNetworkIdentities();
             SetupIDs();
 #endif
         }
@@ -365,24 +365,6 @@ namespace Mirror
         public static uint AssetGuidToUint(Guid guid) => (uint)guid.GetHashCode(); // deterministic
 
 #if UNITY_EDITOR
-        // child NetworkIdentities are not supported.
-        // Disallow them and show an error for the user to fix.
-        // This needs to work for Prefabs & Scene objects, so the previous check
-        // in NetworkClient.RegisterPrefab is not enough.
-        void DisallowChildNetworkIdentities()
-        {
-#if UNITY_2020_3_OR_NEWER
-            NetworkIdentity[] identities = GetComponentsInChildren<NetworkIdentity>(true);
-#else
-            NetworkIdentity[] identities = GetComponentsInChildren<NetworkIdentity>();
-#endif
-            if (identities.Length > 1)
-            {
-                // always log the next child component so it's easy to fix.
-                // if there are multiple, then after removing it'll log the next.
-                Debug.LogError($"'{name}' has another NetworkIdentity component on '{identities[1].name}'. There should only be one NetworkIdentity, and it must be on the root object. Please remove the other one.", this);
-            }
-        }
 
         void AssignAssetID(string path)
         {
@@ -671,7 +653,24 @@ namespace Mirror
 
                 // if an identity is still in .spawned, remove it too.
                 // fixes: https://github.com/MirrorNetworking/Mirror/issues/3324
-                NetworkClient.spawned.Remove(netId);
+                //
+                // however, verify that spawned[netId] is this NetworkIdentity
+                // fixes: https://github.com/MirrorNetworking/Mirror/issues/3785
+                // - server: netId=42 walks out of and back into AOI range in same frame
+                // - client frame 1:
+                //     on_destroymsg(42) -> NetworkClient.DestroyObject -> GameObject.Destroy(42) // next frame
+                //     on_spawnmsg(42) -> NetworkClient.SpawnPrefab -> Instantiate(42) -> spawned[42]=new_identity
+                // - client frame 2:
+                //     Unity destroys the old 42
+                //     NetworkIdentity.OnDestroy removes .spawned[42] which is new_identity not old_identity
+                //     new_identity becomes orphaned
+                //
+                // solution: only remove if spawned[netId] is this NetworkIdentity or null
+                if (NetworkClient.spawned.TryGetValue(netId, out NetworkIdentity entry))
+                {
+                    if (entry == this || entry == null)
+                        NetworkClient.spawned.Remove(netId);
+                }
             }
 
             // workaround for cyclid NI<->NB reference causing memory leaks
@@ -846,7 +845,7 @@ namespace Mirror
             for (int i = 0; i < components.Length; ++i)
             {
                 NetworkBehaviour component = components[i];
-                ulong nthBit = (1u << i);
+                ulong nthBit = 1ul << i;
 
                 bool dirty = component.IsDirty();
 
@@ -893,7 +892,7 @@ namespace Mirror
 
                 // on client, only consider owned components with SyncDirection to server
                 NetworkBehaviour component = components[i];
-                ulong nthBit = (1u << i);
+                ulong nthBit = 1ul << i;
 
                 if (isOwned && component.syncDirection == SyncDirection.ClientToServer)
                 {
@@ -911,7 +910,7 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsDirty(ulong mask, int index)
         {
-            ulong nthBit = (ulong)(1 << index);
+            ulong nthBit = 1ul << index;
             return (mask & nthBit) != 0;
         }
 

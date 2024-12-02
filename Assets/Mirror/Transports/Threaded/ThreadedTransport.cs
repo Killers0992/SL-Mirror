@@ -197,11 +197,10 @@ namespace Mirror
             Debug.Log($"ThreadedTransport: started worker thread!");
         }
 
-        protected virtual void OnDestroy()
+        public override void OnDestroy()
         {
             // stop thread fully
-            Shutdown();
-
+            base.OnDestroy();
             // TODO recycle writers.
         }
 
@@ -467,12 +466,18 @@ namespace Mirror
                     }
                     case ClientMainEventType.OnClientReceived:
                     {
-                        // call original transport event
-                        ConcurrentNetworkWriterPooled writer = (ConcurrentNetworkWriterPooled)elem.param;
-                        OnClientDataReceived?.Invoke(writer, elem.channelId.Value);
+                        // immediately stop processing Data messages after ClientDisconnect() was called.
+                        // ClientDisconnect() sets clientConnected=false, so we can simply check that here.
+                        // fixes: https://github.com/MirrorNetworking/Mirror/issues/3787
+                        if (clientConnected)
+                        {
+                            // call original transport event
+                            ConcurrentNetworkWriterPooled writer = (ConcurrentNetworkWriterPooled)elem.param;
+                            OnClientDataReceived?.Invoke(writer, elem.channelId.Value);
 
-                        // recycle writer to thread safe pool for reuse
-                        ConcurrentNetworkWriterPool.Return(writer);
+                            // recycle writer to thread safe pool for reuse
+                            ConcurrentNetworkWriterPool.Return(writer);
+                        }
                         break;
                     }
                     case ClientMainEventType.OnClientError:

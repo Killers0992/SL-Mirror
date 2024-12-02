@@ -382,7 +382,7 @@ namespace Mirror
         }
 
         /// <summary>Starts the client, connects it to the server with networkAddress.</summary>
-        public void StartClient()
+        public virtual void StartClient()
         {
             // Do checks and short circuits before setting anything up.
             // If / when we retry, we won't have conflict issues.
@@ -584,11 +584,11 @@ namespace Mirror
             // to avoid collision and let a fresh Network Manager be created.
             // IMPORTANT: .gameObject can be null if StopClient is called from
             //            OnApplicationQuit or from tests!
-            if (gameObject != null
+            /*if (gameObject != null
                 && gameObject.scene.name == "DontDestroyOnLoad"
                 && !string.IsNullOrWhiteSpace(offlineScene)
                 && SceneManager.GetActiveScene().path != offlineScene)
-                SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());
+                SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());*/
 
             OnStopServer();
 
@@ -632,36 +632,6 @@ namespace Mirror
             //     NetworkClient.OnTransportDisconnect
             //   NetworkManager.OnClientDisconnect
             NetworkClient.Disconnect();
-
-            // UNET invoked OnDisconnected cleanup immediately.
-            // let's keep it for now, in case any projects depend on it.
-            // TODO simply remove this in the future.
-            OnClientDisconnectInternal();
-        }
-
-        // called when quitting the application by closing the window / pressing
-        // stop in the editor. virtual so that inheriting classes'
-        // OnApplicationQuit() can call base.OnApplicationQuit() too
-        public virtual void OnApplicationQuit()
-        {
-            // stop client first
-            // (we want to send the quit packet to the server instead of waiting
-            //  for a timeout)
-            if (NetworkClient.isConnected)
-            {
-                StopClient();
-                //Debug.Log("OnApplicationQuit: stopped client");
-            }
-
-            // stop server after stopping client (for proper host mode stopping)
-            if (NetworkServer.active)
-            {
-                StopServer();
-                //Debug.Log("OnApplicationQuit: stopped server");
-            }
-
-            // Call ResetStatics to reset statics and singleton
-            ResetStatics();
         }
 
         /// <summary>Set the frame rate for a headless builds. Override to disable or modify.</summary>
@@ -777,11 +747,40 @@ namespace Mirror
             singleton = null;
         }
 
-        // virtual so that inheriting classes' OnDestroy() can call base.OnDestroy() too
+        // called when quitting the application by closing the window / pressing
+        // stop in the editor.
+        // use OnDestroy instead of OnApplicationQuit:
+        // fixes: https://github.com/MirrorNetworking/Mirror/issues/2802
         public virtual void OnDestroy()
         {
             //Debug.Log("NetworkManager destroyed");
+
+            // stop client first
+            // (we want to send the quit packet to the server instead of waiting
+            //  for a timeout)
+            if (NetworkClient.isConnected)
+            {
+                StopClient();
+                //Debug.Log("OnApplicationQuit: stopped client");
+            }
+
+            // stop server after stopping client (for proper host mode stopping)
+            if (NetworkServer.active)
+            {
+                StopServer();
+                //Debug.Log("OnApplicationQuit: stopped server");
+            }
+
+            // Call ResetStatics to reset statics and singleton
+            ResetStatics();
         }
+
+        // [Obsolete] in case someone is inheriting it.
+        // don't use this anymore.
+        // fixes: https://github.com/MirrorNetworking/Mirror/issues/2802
+        // DEPRECATED 2024-10-29
+        [Obsolete("Override OnDestroy instead of OnApplicationQuit.")]
+        public virtual void OnApplicationQuit() {}
 
         /// <summary>The name of the current network scene.</summary>
         // set by NetworkManager when changing the scene.
@@ -1281,11 +1280,11 @@ namespace Mirror
             // to avoid collision and let a fresh Network Manager be created.
             // IMPORTANT: .gameObject can be null if StopClient is called from
             //            OnApplicationQuit or from tests!
-            if (gameObject != null
+            /*if (gameObject != null
                 && gameObject.scene.name == "DontDestroyOnLoad"
                 && !string.IsNullOrWhiteSpace(offlineScene)
                 && SceneManager.GetActiveScene().path != offlineScene)
-                SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());
+                SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());*/
 
             // If StopHost called in Host mode, StopServer will change scenes after this.
             // Check loadingSceneAsync to ensure we don't double-invoke the scene change.
@@ -1446,11 +1445,13 @@ namespace Mirror
 
 #if DEBUG
         // keep OnGUI even in builds. useful to debug snap interp.
+#if UNITY_EDITOR
         void OnGUI()
         {
             if (!timeInterpolationGui) return;
             NetworkClient.OnGUI();
         }
+#endif
 #endif
     }
 }
