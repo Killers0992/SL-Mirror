@@ -41,7 +41,7 @@ namespace Mirror.Tests.NetworkServers
         public int called;
         // weaver generates this from [Rpc]
         // but for tests we need to add it manually
-        public static void RpcGenerated(NetworkBehaviour comp, NetworkReader reader, NetworkConnection senderConnection)
+        public static void RpcGenerated(NetworkBehaviour comp, NetworkReader reader, NetworkConnectionToClient senderConnection)
         {
             ++((RpcTestNetworkBehaviour)comp).called;
         }
@@ -800,20 +800,22 @@ namespace Mirror.Tests.NetworkServers
         {
             // listen & connect
             NetworkServer.Listen(1);
-            ConnectHostClientBlockingAuthenticatedAndReady();
+            ConnectClientBlockingAuthenticatedAndReady(out _);
 
             // add an identity with two networkbehaviour components
             // spawned, otherwise command handler won't find it in .spawned.
             // WITH OWNER = WITH AUTHORITY
-            CreateNetworkedAndSpawn(out GameObject _, out NetworkIdentity identity, out CommandTestNetworkBehaviour comp, NetworkServer.localConnection);
+            CreateNetworkedAndSpawn(out _, out NetworkIdentity serverIdentity, out CommandTestNetworkBehaviour serverComponent,
+                                    out _, out NetworkIdentity clientIdentity, out CommandTestNetworkBehaviour clientComponent,
+                                    NetworkServer.localConnection);
 
             // change identity's owner connection so we can't call [Commands] on it
-            identity.connectionToClient = new LocalConnectionToClient();
+            serverIdentity.connectionToClient = new LocalConnectionToClient();
 
             // call the command
-            comp.TestCommand();
+            clientComponent.TestCommand();
             ProcessMessages();
-            Assert.That(comp.called, Is.EqualTo(0));
+            Assert.That(serverComponent.called, Is.EqualTo(0));
         }
 
         [Test]
@@ -826,13 +828,13 @@ namespace Mirror.Tests.NetworkServers
             // add an identity with two networkbehaviour components
             // spawned, otherwise command handler won't find it in .spawned.
             // WITHOUT OWNER = WITHOUT AUTHORITY for this test
-            CreateNetworkedAndSpawn(out _, out _, out CommandTestNetworkBehaviour comp,
-                                    out _, out _, out _);
+            CreateNetworkedAndSpawn(out _, out _, out CommandTestNetworkBehaviour serverComponent,
+                                    out _, out _, out CommandTestNetworkBehaviour clientComponent);
 
             // call the command
-            comp.TestCommand();
+            clientComponent.TestCommand();
             ProcessMessages();
-            Assert.That(comp.called, Is.EqualTo(0));
+            Assert.That(serverComponent.called, Is.EqualTo(0));
         }
 
         [Test]
@@ -1172,10 +1174,14 @@ namespace Mirror.Tests.NetworkServers
             Assert.That(NetworkServer.active, Is.False);
             Assert.That(NetworkServer.isLoadingScene, Is.False);
 
+            Assert.That(NetworkServer.exceptionsDisconnect, Is.True);
+
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
             Assert.That(NetworkServer.connectionsCopy.Count, Is.EqualTo(0));
             Assert.That(NetworkServer.handlers.Count, Is.EqualTo(0));
             Assert.That(NetworkServer.spawned.Count, Is.EqualTo(0));
+
+            Assert.That(NetworkServer.actualTickRate, Is.EqualTo(0));
 
             Assert.That(NetworkServer.localConnection, Is.Null);
             Assert.That(NetworkServer.activeHost, Is.False);

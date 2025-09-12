@@ -23,14 +23,21 @@ using UnityEngine;
 namespace Mirror
 {
     public enum CoordinateSpace { Local, World }
+    public enum UpdateMethod { Update, FixedUpdate, LateUpdate }
 
     public abstract class NetworkTransformBase : NetworkBehaviour
     {
+        internal TransformSnapshot? pendingSnapshot;
+
         // target transform to sync. can be on a child.
         // TODO this field is kind of unnecessary since we now support child NetworkBehaviours
         [Header("Target")]
         [Tooltip("The Transform component to sync. May be on on this GameObject, or on a child.")]
         public Transform target;
+
+        [Header("Base Settings")]
+        [Tooltip("Select which Update method to use.\nSelect FixedUpdate for non-kinematic rigidbodies.")]
+        public UpdateMethod updateMethod = UpdateMethod.Update;
 
         // Is this a client with authority over this transform?
         // This component could be on the player object or any object that has been assigned authority to this client.
@@ -119,6 +126,11 @@ namespace Mirror
         protected double timeStampAdjustment => NetworkServer.sendInterval * (sendIntervalMultiplier - 1);
         protected double offset => timelineOffset ? NetworkServer.sendInterval * sendIntervalMultiplier : 0;
 
+        // velocity for convenience (animators etc.)
+        // this isn't technically NetworkTransforms job, but it's needed by so many projects that we just provide it anyway.
+        public Vector3 velocity { get; private set; }
+        public Vector3 angularVelocity { get; private set; }
+
         // debugging ///////////////////////////////////////////////////////////
         [Header("Debug")]
         public bool showGizmos;
@@ -135,6 +147,9 @@ namespace Mirror
             // configure in awake
             Configure();
         }
+
+        // For NetworkBehaviourInspector
+        internal override bool showSyncMethod() => false;
 
         // initialization //////////////////////////////////////////////////////
         // forcec configuration of some settings
@@ -262,6 +277,14 @@ namespace Mirror
             // -> we still interpolated
             // -> but simply don't apply it. if the user doesn't want to sync
             //    scale, then we should not touch scale etc.
+
+            // calculate the velocity and angular velocity for the object
+            // these can be used to drive animations or other behaviours
+            if (!isOwned && Time.deltaTime > 0)
+            {
+                velocity = (transform.localPosition - interpolated.position) / Time.deltaTime;
+                angularVelocity = (transform.localRotation.eulerAngles - interpolated.rotation.eulerAngles) / Time.deltaTime;
+            }
 
             // interpolate parts
             if (syncPosition) SetPosition(interpolatePosition ? interpolated.position : endGoal.position);
@@ -414,6 +437,10 @@ namespace Mirror
             // so let's clear the buffers.
             serverSnapshots.Clear();
             clientSnapshots.Clear();
+
+            // Prevent resistance from CharacterController
+            // or non-knematic Rigidbodies when teleporting.
+            Physics.SyncTransforms();
         }
 
         public virtual void Reset()
@@ -421,6 +448,9 @@ namespace Mirror
             ResetState();
             // default to ClientToServer so this works immediately for users
             syncDirection = SyncDirection.ClientToServer;
+
+            // default to 20Hz, 20 sends per second if data has changed.
+            syncInterval = 0.05f;
         }
 
         protected virtual void OnEnable()
@@ -456,8 +486,8 @@ namespace Mirror
             }
         }
 
+#if UNITY_EDITOR || (!UNITY_SERVER && DEBUG)
         // OnGUI allocates even if it does nothing. avoid in release.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         // debug ///////////////////////////////////////////////////////////////
         protected virtual void OnGUI()
         {

@@ -42,18 +42,41 @@ namespace Mirror
         // Used to store last sent snapshots
         protected TransformSnapshot last;
 
+        // validation //////////////////////////////////////////////////////////
+        // Configure is called from OnValidate and Awake
+        protected override void Configure()
+        {
+            base.Configure();
+
+            // force syncMethod to reliable
+            syncMethod = SyncMethod.Reliable;
+        }
+
         // update //////////////////////////////////////////////////////////////
         void Update()
         {
-            // if server then always sync to others.
-            if (isServer) UpdateServer();
-            // 'else if' because host mode shouldn't send anything to server.
-            // it is the server. don't overwrite anything there.
-            else if (isClient) UpdateClient();
+            if (updateMethod == UpdateMethod.Update)
+                DoUpdate();
+        }
+
+        void FixedUpdate()
+        {
+            if (updateMethod == UpdateMethod.FixedUpdate)
+                DoUpdate();
+
+            if (pendingSnapshot.HasValue && !IsClientWithAuthority)
+            {
+                // Apply via base method, but in FixedUpdate
+                Apply(pendingSnapshot.Value, pendingSnapshot.Value);
+                pendingSnapshot = null;
+            }
         }
 
         void LateUpdate()
         {
+            if (updateMethod == UpdateMethod.LateUpdate)
+                DoUpdate();
+
             // set dirty to trigger OnSerialize. either always, or only if changed.
             // It has to be checked in LateUpdate() for onlySyncOnChange to avoid
             // the possibility of Update() running first before the object's movement
@@ -61,11 +84,20 @@ namespace Mirror
             // instead.
             if (isServer || (IsClientWithAuthority && NetworkClient.ready))
             {
-                if (sendIntervalCounter == sendIntervalMultiplier && (!onlySyncOnChange || Changed(Construct())))
+                if (sendIntervalCounter >= sendIntervalMultiplier && (!onlySyncOnChange || Changed(Construct())))
                     SetDirty();
 
                 CheckLastSendTime();
             }
+        }
+
+        void DoUpdate()
+        {
+            // if server then always sync to others.
+            if (isServer) UpdateServer();
+            // 'else if' because host mode shouldn't send anything to server.
+            // it is the server. don't overwrite anything there.
+            else if (isClient) UpdateClient();
         }
 
         protected virtual void UpdateServer()
@@ -102,24 +134,41 @@ namespace Mirror
 
         protected virtual void UpdateClient()
         {
-            // client authority, and local player (= allowed to move myself)?
-            if (!IsClientWithAuthority)
+            if (updateMethod == UpdateMethod.FixedUpdate)
             {
-                // only while we have snapshots
-                if (clientSnapshots.Count > 0)
+                if (!IsClientWithAuthority && clientSnapshots.Count > 0)
                 {
-                    // step the interpolation without touching time.
-                    // NetworkClient is responsible for time globally.
                     SnapshotInterpolation.StepInterpolation(
                         clientSnapshots,
-                        NetworkTime.time, // == NetworkClient.localTimeline from snapshot interpolation
+                        NetworkTime.time,
                         out TransformSnapshot from,
                         out TransformSnapshot to,
-                        out double t);
+                        out double t
+                    );
+                    pendingSnapshot = TransformSnapshot.Interpolate(from, to, t);
+                }
+            }
+            else
+            {
+                // client authority, and local player (= allowed to move myself)?
+                if (!IsClientWithAuthority)
+                {
+                    // only while we have snapshots
+                    if (clientSnapshots.Count > 0)
+                    {
+                        // step the interpolation without touching time.
+                        // NetworkClient is responsible for time globally.
+                        SnapshotInterpolation.StepInterpolation(
+                            clientSnapshots,
+                            NetworkTime.time, // == NetworkClient.localTimeline from snapshot interpolation
+                            out TransformSnapshot from,
+                            out TransformSnapshot to,
+                            out double t);
 
-                    // interpolate & apply
-                    TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
-                    Apply(computed, to);
+                        // interpolate & apply
+                        TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
+                        Apply(computed, to);
+                    }
                 }
             }
         }
@@ -129,7 +178,7 @@ namespace Mirror
             // timeAsDouble not available in older Unity versions.
             if (AccurateInterval.Elapsed(NetworkTime.localTime, NetworkServer.sendInterval, ref lastSendIntervalTime))
             {
-                if (sendIntervalCounter == sendIntervalMultiplier)
+                if (sendIntervalCounter >= sendIntervalMultiplier)
                     sendIntervalCounter = 0;
                 sendIntervalCounter++;
             }
@@ -394,6 +443,26 @@ namespace Mirror
                     scale
                 )
             );
+        }
+
+        // modify base OnTeleport to NOT reset lastDe/Serialized,
+        // otherwise delta serialization breaks on teleport.
+        protected override void OnTeleport(Vector3 destination)
+        {
+            // set the new position.
+            // interpolation will automatically continue.
+            target.position = destination;
+
+            // reset interpolation to immediately jump to the new position.
+            // do not call Reset() here, this would cause delta compression to
+            // get out of sync for NetworkTransformReliable because NTReliable's
+            // 'override Reset()' resets lastDe/SerializedPosition:
+            // https://github.com/MirrorNetworking/Mirror/issues/3588
+            // because client's next OnSerialize() will delta compress,
+            // but server's last delta will have been reset, causing offsets.
+            //
+            // instead, simply clear snapshots.
+            base.ResetState(); // ! OVERWRITE ! only call base.ResetState, don't reset deltas!
         }
 
         // reset state for next session.
