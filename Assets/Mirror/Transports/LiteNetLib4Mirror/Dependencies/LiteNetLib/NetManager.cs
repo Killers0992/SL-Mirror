@@ -8,7 +8,8 @@ using System.Net.Sockets;
 using System.Threading;
 using LiteNetLib.Layers;
 using LiteNetLib.Utils;
-//using Steam;
+using Org.BouncyCastle.Security;
+using Steam;
 
 namespace LiteNetLib
 {
@@ -174,6 +175,16 @@ namespace LiteNetLib
 		private ConcurrentQueue<int> _peerIds = new ConcurrentQueue<int>();
 		private byte _channelsCount = 1;
 		private readonly object _eventLock = new object();
+		private readonly SecureRandom _random = new();
+		private readonly Dictionary<IPEndPoint, ChallengeInfo> _challenges = new Dictionary<IPEndPoint, ChallengeInfo>();
+		private const byte A2SInfoHeader = (byte)'T';
+		private const byte S2CChallengePacket = (byte)'A';
+
+		private struct ChallengeInfo
+		{
+			public uint Challenge;
+			public long Timestamp;
+		}
 
 		//config section
 		/// <summary>
@@ -963,15 +974,78 @@ namespace LiteNetLib
 
 			if (!packet.Verify())
 			{
+				NetDebug.Write(NetLogLevel.Trace, $"[NM] Got Data: {BitConverter.ToString(packet.RawData)}");
+
 				// Requests A2S_Info data from server.
-				if (packet.RawData.Length >= 5 && packet.RawData[4] == 0x54)
+				if (packet.RawData.Length < 5 || packet.RawData[4] != A2SInfoHeader)
 				{
-					//_udpSocketv4.SendTo(SteamServerInfo.Serialize(), SocketFlags.None, remoteEndPoint);
+					NetDebug.WriteError("[NM] DataReceived: bad!");
 					PoolRecycle(packet);
 					return;
 				}
 
-				NetDebug.WriteError("[NM] DataReceived: bad!");
+				long expirationTimestamp = Stopwatch.GetTimestamp() - 4 * TimeSpan.TicksPerSecond;
+				List<IPEndPoint> expiredChallengeKeys = new List<IPEndPoint>();
+
+				foreach (KeyValuePair<IPEndPoint, ChallengeInfo> kvp in _challenges)
+				{
+					if (kvp.Value.Timestamp >= expirationTimestamp)
+						continue;
+
+					expiredChallengeKeys.Add(kvp.Key);
+				}
+
+				foreach (IPEndPoint key in expiredChallengeKeys)
+				{
+					_challenges.Remove(key);
+				}
+
+				if (_challenges.TryGetValue(remoteEndPoint, out ChallengeInfo challenge))
+				{
+					NetDebug.Write(NetLogLevel.Trace, $"[NM] Expecting challenge {challenge.Challenge}");
+
+					int index = Array.IndexOf(packet.RawData, (byte) 0) + 1;
+
+					if (index != 0 && packet.RawData.Length >= index + 4)
+					{
+						uint providedChallenge = BitConverter.ToUInt32(packet.RawData, index);
+
+						if (providedChallenge == challenge.Challenge)
+						{
+							NetDebug.Write(NetLogLevel.Trace, $"[NM] Provided challenge {providedChallenge} was correct");
+							_challenges.Remove(remoteEndPoint);
+							_udpSocketv4.SendTo(SteamServerInfo.Serialize(), SocketFlags.None, remoteEndPoint);
+							PoolRecycle(packet);
+							return;
+						}
+
+						NetDebug.Write(NetLogLevel.Trace, $"[NM] Provided challenge {providedChallenge} did not match expected {challenge.Challenge}");
+					}
+
+					NetDebug.WriteError("[NM] DataReceived: bad! Expected Challenge was not received.");
+					PoolRecycle(packet);
+					return;
+				}
+
+				uint newChallenge = (uint) _random.Next();
+				_challenges[remoteEndPoint] = new ChallengeInfo
+				{
+					Challenge = newChallenge,
+					Timestamp = Stopwatch.GetTimestamp(),
+				};
+
+				byte[] challengePacket = new byte[9];
+
+				for (int i = 0; i < 4; i++)
+				{
+					challengePacket[i] = 0xFF;
+				}
+
+				challengePacket[4] = S2CChallengePacket;
+				Buffer.BlockCopy(BitConverter.GetBytes(newChallenge), 0, challengePacket, 5, 4);
+
+				_udpSocketv4.SendTo(challengePacket, SocketFlags.None, remoteEndPoint);
+				NetDebug.Write(NetLogLevel.Trace, $"[NM] Sent initial challenge {newChallenge}");
 				PoolRecycle(packet);
 				return;
 			}

@@ -70,7 +70,7 @@ namespace Mirror
         public NetworkConnectionToClient(int networkConnectionId, string clientAddress = "localhost") : base()
         {
             connectionId = networkConnectionId;
-            address = clientAddress;
+			OriginalIpAddress = clientAddress;
 
             // initialize EMA with 'emaDuration' seconds worth of history.
             // 1 second holds 'sendRate' worth of values.

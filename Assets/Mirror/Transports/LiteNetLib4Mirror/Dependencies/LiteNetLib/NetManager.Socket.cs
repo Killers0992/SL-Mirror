@@ -179,31 +179,32 @@ namespace LiteNetLib
 
 			while (IsRunning)
 			{
-				if (socketV6 == null)
-				{
-					NativeReceiveFrom(ref packet, socketHandle4, addrBuffer4, addrSize4);
-				}
-				bool messageReceived = false;
-				if (socketv4.Available != 0 || selectReadList.Contains(socketv4))
-				{
-					NativeReceiveFrom(ref packet, socketHandle4, addrBuffer4, addrSize4);
-					messageReceived = true;
-				}
-				if (socketV6.Available != 0 || selectReadList.Contains(socketV6))
-				{
-					NativeReceiveFrom(ref packet, socketHandle6, addrBuffer6, addrSize6);
-					messageReceived = true;
-				}
-
-				selectReadList.Clear();
-
-				if (messageReceived)
-					continue;
-
-				selectReadList.Add(socketv4);
-				selectReadList.Add(socketV6);
 				try
 				{
+					if (socketV6 == null)
+					{
+						NativeReceiveFrom(ref packet, socketHandle4, addrBuffer4, addrSize4);
+					}
+					bool messageReceived = false;
+					if (socketv4.Available != 0 || selectReadList.Contains(socketv4))
+					{
+						NativeReceiveFrom(ref packet, socketHandle4, addrBuffer4, addrSize4);
+						messageReceived = true;
+					}
+					if (socketV6.Available != 0 || selectReadList.Contains(socketV6))
+					{
+						NativeReceiveFrom(ref packet, socketHandle6, addrBuffer6, addrSize6);
+						messageReceived = true;
+					}
+
+					selectReadList.Clear();
+
+					if (messageReceived)
+						continue;
+
+					selectReadList.Add(socketv4);
+					selectReadList.Add(socketV6);
+
 					Socket.Select(selectReadList, null, null, ReceivePollingTime);
 				}
 				catch (SocketException ex)

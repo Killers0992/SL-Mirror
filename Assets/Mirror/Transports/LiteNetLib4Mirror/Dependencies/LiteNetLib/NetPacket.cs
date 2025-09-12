@@ -1,5 +1,6 @@
 ﻿using System;
 using LiteNetLib.Utils;
+using UnityEngine;
 
 namespace LiteNetLib
 {
@@ -150,12 +151,22 @@ namespace LiteNetLib
 
 		public bool Verify()
 		{
-			byte property = (byte) (RawData[0] & 0x1F);
-			if (property >= PropertiesCount)
+			try
+			{
+				if (RawData.Length <= 0)
+					return false;
+				byte property = (byte) (RawData[0] & 0x1F);
+				if (property >= PropertiesCount)
+					return false;
+				int headerSize = HeaderSizes[property];
+				bool fragmented = (RawData[0] & 0x80) != 0;
+				return Size >= headerSize && (!fragmented || Size >= headerSize + NetConstants.FragmentHeaderSize);
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"Error verifying packet: {e}");
 				return false;
-			int headerSize = HeaderSizes[property];
-			bool fragmented = (RawData[0] & 0x80) != 0;
-			return Size >= headerSize && (!fragmented || Size >= headerSize + NetConstants.FragmentHeaderSize);
+			}
 		}
 	}
 }
