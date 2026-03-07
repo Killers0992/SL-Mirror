@@ -13,9 +13,11 @@ namespace Mirror.Weaver
         public MethodReference NetworkBehaviourIsClientReference;
         public MethodReference NetworkBehaviourIsServerReference;
         public FieldReference NetworkBehaviourDirtyBitsReference;
+        public MethodReference NetworkBehaviourConnectionToClientReference;
         public MethodReference GetWriterReference;
         public MethodReference ReturnWriterReference;
 
+        public MethodReference NetworkServerLocalConnectionReference;
         public MethodReference NetworkClientConnectionReference;
 
         public MethodReference RemoteCallDelegateConstructor;
@@ -85,6 +87,7 @@ namespace Mirror.Weaver
 
             TypeReference NetworkServerType = Import(typeof(NetworkServer));
             NetworkServerGetActive = Resolvers.ResolveMethod(NetworkServerType, assembly, Log, "get_active", ref WeavingFailed);
+            NetworkServerLocalConnectionReference = Resolvers.ResolveMethod(NetworkServerType, assembly, Log, "get_localConnection", ref WeavingFailed);
 
             TypeReference NetworkClientType = Import(typeof(NetworkClient));
             NetworkClientGetActive = Resolvers.ResolveMethod(NetworkClientType, assembly, Log, "get_active", ref WeavingFailed);
@@ -96,6 +99,8 @@ namespace Mirror.Weaver
             NetworkBehaviourIsServerReference = Resolvers.ResolveMethod(NetworkBehaviourType, assembly, Log, "get_isServer", ref WeavingFailed);
 
             NetworkBehaviourDirtyBitsReference = Resolvers.ResolveField(NetworkBehaviourType, assembly, Log, "syncVarDirtyBits", ref WeavingFailed);
+
+            NetworkBehaviourConnectionToClientReference = Resolvers.ResolveMethod(NetworkBehaviourType, assembly, Log, "get_connectionToClient", ref WeavingFailed);
 
             generatedSyncVarSetter = Resolvers.ResolveMethod(NetworkBehaviourType, assembly, Log, "GeneratedSyncVarSetter", ref WeavingFailed);
             generatedSyncVarSetter_GameObject = Resolvers.ResolveMethod(NetworkBehaviourType, assembly, Log, "GeneratedSyncVarSetter_GameObject", ref WeavingFailed);
