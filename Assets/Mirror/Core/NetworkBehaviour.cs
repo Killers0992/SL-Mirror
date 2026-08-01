@@ -378,7 +378,7 @@ namespace Mirror
         }
 
         // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
-        protected void SendCommandInternal(string functionFullName, int functionHashCode, NetworkWriter writer, int channelId, bool requiresAuthority = true)
+        protected void SendCommandInternal(string functionFullName, ushort functionHashCode, NetworkWriter writer, int channelId, bool requiresAuthority = true)
         {
             // this was in Weaver before
             // NOTE: we could remove this later to allow calling Cmds on Server
@@ -432,7 +432,7 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
-                functionHash = (ushort)functionHashCode,
+                functionHash = functionHashCode,
                 // segment to avoid reader allocations
                 payload = writer.ToArraySegment()
             };
@@ -448,7 +448,7 @@ namespace Mirror
         }
 
         // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
-        protected void SendRPCInternal(string functionFullName, int functionHashCode, NetworkWriter writer, int channelId, bool includeOwner)
+        protected void SendRPCInternal(string functionFullName, ushort functionHashCode, NetworkWriter writer, int channelId, bool includeOwner)
         {
             // this was in Weaver before
             if (!NetworkServer.active)
@@ -470,7 +470,7 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
-                functionHash = (ushort)functionHashCode,
+                functionHash = functionHashCode,
                 // segment to avoid reader allocations
                 payload = writer.ToArraySegment()
             };
@@ -502,7 +502,7 @@ namespace Mirror
         }
 
         // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
-        protected void SendTargetRPCInternal(NetworkConnection conn, string functionFullName, int functionHashCode, NetworkWriter writer, int channelId)
+        protected void SendTargetRPCInternal(NetworkConnection conn, string functionFullName, ushort functionHashCode, NetworkWriter writer, int channelId)
         {
             if (!NetworkServer.active)
             {
@@ -541,7 +541,7 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
-                functionHash = (ushort)functionHashCode,
+                functionHash = functionHashCode,
                 // segment to avoid reader allocations
                 payload = writer.ToArraySegment()
             };
